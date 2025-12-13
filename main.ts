@@ -1,69 +1,225 @@
 import { App, Editor, MarkdownView, Modal, Notice, Plugin, PluginSettingTab, Setting } from 'obsidian';
 
-// Remember to rename these classes and interfaces!
-
-interface MyPluginSettings {
-	mySetting: string;
+function waitForReflowComplete() {
+	return new Promise((res) => {
+		window.requestAnimationFrame(() => res(true));
+	})
 }
 
-const DEFAULT_SETTINGS: MyPluginSettings = {
-	mySetting: 'default'
+class FatCursorForWindow {
+	app: App;
+	cursorElement: HTMLSpanElement;
+	bufferedDocument: Document;
+	bufferedWindow: Window;
+	lastPos: DOMRect | null = null;
+	plugin: FatCursorPlugin;
+	wrapperElement: HTMLDivElement | null;
+	constructor(plugin: FatCursorPlugin, aw: Window, ad: Document, registerDomEvent: CallableFunction, show: boolean = true) {
+		this.plugin = plugin;
+		this.app = plugin.app;
+		// buffering
+		this.bufferedWindow = aw;
+		this.bufferedDocument = ad;
+		this.wrapperElement = ad.createElement("div");
+		this.wrapperElement.addClass("cursorWrapper");
+		this.cursorElement = ad.createElement("span");
+		this.wrapperElement.appendChild(this.cursorElement);
+		ad.body.appendChild(this.wrapperElement);
+		this.cursorElement.addClass("x-cursor");
+		const styleRoot = this.wrapperElement;
+		let datumTop = 0;
+		let datumElement: HTMLElement;
+		let cursorVisibility = false;
+		let processing = false;
+		const moveCursor = async (e?: Event, noAnimate?: boolean) => {
+			if (processing) {
+				return;
+			}
+			processing = true;
+			await __moveCursor(e, noAnimate);
+			processing = false;
+		}
+		const __moveCursor = async (e?: Event, noAnimate?: boolean) => {
+			console.log("MoveEvent" +e);
+			try {
+				if (e && e.target instanceof HTMLElement && (e.target.isContentEditable || e.target.tagName == "INPUT")) {
+					// If it caused by clicking an element and it is editable.
+					datumElement = e.target;
+					if (!cursorVisibility) {
+						cursorVisibility = true;
+					}
+				} else if (e != null) {
+					// If it caused by clicking an element but it is not editable.
+					if (cursorVisibility) {
+						styleRoot.style.setProperty("--cursor-visibility", `hidden`);
+						cursorVisibility = false;
+					}
+					return;
+				}
+				if (e && e.target instanceof HTMLElement) {
+					// Memo datum element for scroll.
+					datumElement = e.target;
+				}
+				await waitForReflowComplete();
+				datumTop = datumElement.getBoundingClientRect().top;
+				let targetElement = (e?.target as HTMLElement);
+
+				var rect = null;
+				var lh = 18;
+
+				const selection = aw.getSelection();
+				if (selection && selection.getRangeAt(0) && selection.getRangeAt(0).getClientRects()[0]) { // && selection.getRangeAt(0).cloneContents().querySelectorAll("*").length) {
+					console.log("Use selection");
+					rect = selection.getRangeAt(0).getClientRects()[0];
+					lh = parseInt(targetElement.getCssPropertyValue("line-height")) ?? 18;
+
+				} else if (targetElement.querySelector(".cm-active")?.getClientRects() ? [0] : null) {
+					rect = targetElement.querySelector(".cm-active")?.getClientRects()[0] ?? null;
+					lh = parseInt(targetElement.querySelector(".cm-active")?.getCssPropertyValue("line-height") ?? "18");
+				} else if (targetElement.getClientRects()[0]) {
+					rect = targetElement.getClientRects()[0];
+					lh = parseInt(targetElement.getCssPropertyValue("line-height")) ?? 18;
+				}
+lh = Math.max(parseInt(targetElement.querySelector(".cm-active")?.getCssPropertyValue("line-height") ?? "18"), parseInt(targetElement.getCssPropertyValue("line-height")) ?? 18);
+				// const selection = aw.getSelection();
+				// if (!selection) {
+				// 	console.log("Could not find selection");
+				// 	return;
+				// }
+				// if (selection.rangeCount == 0) return;
+				// const range = selection.getRangeAt(0);
+				// var rect: DOMRect | null = range?.getClientRects()[0];
+				// if (!rect) {
+				// 	console.log("No Rect, trying targetElement");
+				// 	if (targetElement.querySelector(".cm-active")?.getClientRects() ? [0] : null) {
+				// 		rect = targetElement.querySelector(".cm-active")?.getClientRects()[0] ?? null;
+				// 	} else if (targetElement.getClientRects()[0]) {
+				// 		rect = targetElement.getClientRects()[0];
+				// 	}
+
+					if (rect == null) {
+						[]
+						console.log("No Rect");
+
+
+						return;
+					}
+
+
+				// }
+				if (this.lastPos == null) {
+					this.lastPos = rect;
+				} else if (this.lastPos.x == rect.x && this.lastPos.y == rect.y) {
+					// return;
+				}
+				console.log("lh", lh);
+				//Set properties at once.
+				styleRoot.style.cssText = `
+  --cursor-x1: ${rect.x}px;
+  --cursor-y1src: ${rect.y}px;
+  --cursor-x2: ${rect.x}px;
+  --cursor-y2src: ${rect.y}px;
+  --cursor-offset-y: ${0}px;
+  	--cursor-height: ${lh}px;
+
+  --cursor-visibility: visible;
+`;
+				if (noAnimate) {
+					this.lastPos = rect;
+					return;
+				}
+				aw.requestAnimationFrame((time) => {
+					this.cursorElement.className = `x-cursor`
+					this.lastPos = rect;
+				});
+			} catch (ex) {
+				console.log(ex);
+				//NO OP.
+			}
+		};
+
+
+		const supportVIMMode = true;
+		// const eventNames = ["keydown", "mousedown", "touchend", "keyup", "mouseup", "touchstart"];
+				const eventNames = ["keydown", "mouseup"];
+
+		for (const event of eventNames) {
+			registerDomEvent(aw, event, (ev: Event) => {
+				moveCursor(ev);
+			});
+		}
+		let triggered = false;
+		// Handles scroll till scroll is finish.
+		const applyWheelScroll = (last?: number | boolean) => {
+			if (!triggered) {
+				requestAnimationFrame(() => {
+					if (datumElement) {
+						try {
+							const curTop = datumElement.getBoundingClientRect().top;
+							const diff = curTop - datumTop;
+							styleRoot.style.setProperty("--cursor-offset-y", `${diff}px`);
+							if (last === false || last != diff) {
+								requestAnimationFrame(() => applyWheelScroll(diff));
+							} else if (last == diff) {
+								moveCursor(undefined, true);
+							}
+						} catch (ex) {
+							// NO OP.
+							console.log(ex);
+						}
+					}
+					triggered = false;
+				});
+				triggered = true;
+			}
+		}
+		registerDomEvent(aw, "wheel", (e: WheelEvent) => {
+			applyWheelScroll(false);
+		});
+	}
+
+	unload() {
+		if (this.wrapperElement) {
+			const doc = this.wrapperElement.doc;
+			if (doc) {
+				doc.body.removeChild(this.wrapperElement);
+				this.wrapperElement = null;
+			}
+		}
+	}
+
 }
 
-export default class MyPlugin extends Plugin {
-	settings: MyPluginSettings;
+
+export default class FatCursorPlugin extends Plugin {
+
+	Cursors: FatCursorForWindow[] = [];
+	settings: FatCursorPluginSettings;
 
 	async onload() {
 		await this.loadSettings();
-
-		// This creates an icon in the left ribbon.
-		const ribbonIconEl = this.addRibbonIcon('dice', 'Sample Plugin', (_evt: MouseEvent) => {
-			// Called when the user clicks the icon.
-			new Notice('This is a notice!');
-		});
-		// Perform additional things with the ribbon
-		ribbonIconEl.addClass('my-plugin-ribbon-class');
-
-		// This adds a status bar item to the bottom of the app. Does not work on mobile apps.
-		const statusBarItemEl = this.addStatusBarItem();
-		statusBarItemEl.setText('Status Bar Text');
-
-		// This adds a simple command that can be triggered anywhere
-		this.addCommand({
-			id: 'open-sample-modal-simple',
-			name: 'Open sample modal (simple)',
-			callback: () => {
-				new SampleModal(this.app).open();
+		this.registerEvent(this.app.workspace.on("window-open", (win) => {
+			console.log("Open by window-open")
+			const exist = this.Cursors.find(e => e.bufferedWindow == win.win);
+			if (!exist) {
+				const w = new FatCursorForWindow(this, win.win, win.doc, this.registerDomEvent.bind(this));
+				this.Cursors.push(w);
 			}
-		});
-		// This adds an editor command that can perform some operation on the current editor instance
-		this.addCommand({
-			id: 'sample-editor-command',
-			name: 'Sample editor command',
-			editorCallback: (editor: Editor, _view: MarkdownView) => {
-				console.log(editor.getSelection());
-				editor.replaceSelection('Sample Editor Command');
+		}));
+		this.registerEvent(this.app.workspace.on("window-close", (win) => {
+			const target = this.Cursors.find(e => e.bufferedWindow == win.win);
+			if (target) {
+				target.unload();
+				this.Cursors.remove(target);
 			}
-		});
-		// This adds a complex command that can check whether the current state of the app allows execution of the command
-		this.addCommand({
-			id: 'open-sample-modal-complex',
-			name: 'Open sample modal (complex)',
-			checkCallback: (checking: boolean) => {
-				// Conditions to check
-				const markdownView = this.app.workspace.getActiveViewOfType(MarkdownView);
-				if (markdownView) {
-					// If checking is true, we're simply "checking" if the command can be run.
-					// If checking is false, then we want to actually perform the operation.
-					if (!checking) {
-						new SampleModal(this.app).open();
-					}
+		}));
 
-					// This command will only show up in Command Palette when the check function returns true
-					return true;
-				}
-			}
-		});
+
+
+		console.log("Open by init")
+		const w = new FatCursorForWindow(this, window, document, this.registerDomEvent.bind(this));
+		this.Cursors.push(w);
+
 
 		// This adds a settings tab so the user can configure various aspects of the plugin
 		this.addSettingTab(new SampleSettingTab(this.app, this));
@@ -79,7 +235,9 @@ export default class MyPlugin extends Plugin {
 	}
 
 	onunload() {
-
+		for (const v of this.Cursors) {
+			v.unload();
+		}
 	}
 
 	async loadSettings() {
@@ -91,32 +249,35 @@ export default class MyPlugin extends Plugin {
 	}
 }
 
+
+
+
 class SampleModal extends Modal {
 	constructor(app: App) {
 		super(app);
 	}
 
 	onOpen() {
-		const {contentEl} = this;
+		const { contentEl } = this;
 		contentEl.setText('Woah!');
 	}
 
 	onClose() {
-		const {contentEl} = this;
+		const { contentEl } = this;
 		contentEl.empty();
 	}
 }
 
 class SampleSettingTab extends PluginSettingTab {
-	plugin: MyPlugin;
+	plugin: FatCursorPlugin;
 
-	constructor(app: App, plugin: MyPlugin) {
+	constructor(app: App, plugin: FatCursorPlugin) {
 		super(app, plugin);
 		this.plugin = plugin;
 	}
 
 	display(): void {
-		const {containerEl} = this;
+		const { containerEl } = this;
 
 		containerEl.empty();
 
@@ -131,4 +292,20 @@ class SampleSettingTab extends PluginSettingTab {
 					await this.plugin.saveSettings();
 				}));
 	}
+}
+
+// Remember to rename these classes and interfaces!
+
+interface FatCursorPluginSettings {
+	mySetting: string,
+	reactToContentEditable: boolean,
+	reactToVimMode: boolean,
+	reactToInputElement: boolean;
+}
+
+const DEFAULT_SETTINGS: FatCursorPluginSettings = {
+	mySetting: 'default',
+	reactToContentEditable: false,
+	reactToVimMode: false,
+	reactToInputElement: false,
 }

@@ -1,8 +1,62 @@
-/*
+.cursorWrapper {
+	--cursor-x1: "0px";
+	--cursor-x2: "0px";
+	--cursor-y1src: "0px";
+	--cursor-y2src: "0px";
+	--cursor-offset-y: "0px";
+	--cursor-height: 18px;
+	--cursor-y1: calc(var(--cursor-y1src) + var(--cursor-offset-y));
+	--cursor-y2: calc(var(--cursor-y2src) + var(--cursor-offset-y));
+	--cursor-visibility: "hidden";
+/* }
 
-This CSS file will be included with your plugin, and
-available in the app when your plugin is enabled.
+.cursorWrapper { */
+	display: block;
+	overflow: hidden;
+	user-select: none;
+	pointer-events: none;
+	background-color: transparent;
+	position: fixed;
+	top: var(--header-height);
+	left: 0;
+	right: 0;
+	bottom: 0;
+	margin: 0;
+	padding: 0;
+	-webkit-app-region: initial !important;
+}
 
-If your plugin does not need CSS, delete this file.
+.x-cursor {
+    border-left: 2px solid var(--color-accent);
+    border-top: 1px dotted var(--color-accent);
+    border-bottom: 1px dotted var(--color-accent);
+	position: relative;
+	top: 0;
+	left: 0;
+	height: var(--cursor-height);
+	width: 8px;
+	display: inline-block;
+	user-select: none;
+	background: var(--color-accent);
+	opacity: 0.1;
+	pointer-events: none;
+	visibility: visible;
+	will-change: transform, opacity, transform-origin;
+    	animation: a1 75ms cubic-bezier(0.34, 1.26, 0.84, 1) 0s both;
 
-*/
+}
+
+
+@keyframes a1 {
+	0% {
+		transform: translate3d(var(--cursor-x1), calc(var(--cursor-y1) - var(--header-height)), 0);
+		/* background-color: var(--text-normal); */
+		opacity: 0.75;
+	}
+
+	100% {
+		transform: translate3d(var(--cursor-x2), calc(var(--cursor-y2) - var(--header-height)), 0);
+		/* background-color: var(--text-normal); */
+		opacity: 0.75;
+	}
+}
