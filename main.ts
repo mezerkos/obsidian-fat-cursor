@@ -40,7 +40,6 @@ class FatCursorForWindow {
 			processing = false;
 		}
 		const __moveCursor = async (e?: Event, noAnimate?: boolean) => {
-			console.log("MoveEvent" +e);
 			try {
 				if (e && e.target instanceof HTMLElement && (e.target.isContentEditable || e.target.tagName == "INPUT")) {
 					// If it caused by clicking an element and it is editable.
@@ -64,55 +63,31 @@ class FatCursorForWindow {
 				datumTop = datumElement.getBoundingClientRect().top;
 				let targetElement = (e?.target as HTMLElement);
 
-				var rect = null;
+				var rect: DOMRect | null = null;
 				var lh = 18;
 
 				const selection = aw.getSelection();
-				if (selection && selection.getRangeAt(0) && selection.getRangeAt(0).getClientRects()[0]) { // && selection.getRangeAt(0).cloneContents().querySelectorAll("*").length) {
-					console.log("Use selection");
+				if (selection && selection.getRangeAt(0) && selection.getRangeAt(0).getClientRects()[0]) {
 					rect = selection.getRangeAt(0).getClientRects()[0];
-					lh = parseInt(targetElement.getCssPropertyValue("line-height")) ?? 18;
-
 				} else if (targetElement.querySelector(".cm-active")?.getClientRects() ? [0] : null) {
 					rect = targetElement.querySelector(".cm-active")?.getClientRects()[0] ?? null;
-					lh = parseInt(targetElement.querySelector(".cm-active")?.getCssPropertyValue("line-height") ?? "18");
 				} else if (targetElement.getClientRects()[0]) {
 					rect = targetElement.getClientRects()[0];
-					lh = parseInt(targetElement.getCssPropertyValue("line-height")) ?? 18;
 				}
-lh = Math.max(parseInt(targetElement.querySelector(".cm-active")?.getCssPropertyValue("line-height") ?? "18"), parseInt(targetElement.getCssPropertyValue("line-height")) ?? 18);
-				// const selection = aw.getSelection();
-				// if (!selection) {
-				// 	console.log("Could not find selection");
-				// 	return;
-				// }
-				// if (selection.rangeCount == 0) return;
-				// const range = selection.getRangeAt(0);
-				// var rect: DOMRect | null = range?.getClientRects()[0];
-				// if (!rect) {
-				// 	console.log("No Rect, trying targetElement");
-				// 	if (targetElement.querySelector(".cm-active")?.getClientRects() ? [0] : null) {
-				// 		rect = targetElement.querySelector(".cm-active")?.getClientRects()[0] ?? null;
-				// 	} else if (targetElement.getClientRects()[0]) {
-				// 		rect = targetElement.getClientRects()[0];
-				// 	}
+				if (targetElement) {
+					lh = Math.max(parseInt(targetElement.querySelector(".cm-active")?.getCssPropertyValue("line-height") ?? "18"),
+						parseInt(targetElement.getCssPropertyValue("line-height")) ?? 18);
+				}
+				if (rect == null) {
+					console.log("No Rect");
+					return;
+				}
 
-					if (rect == null) {
-						[]
-						console.log("No Rect");
-
-
-						return;
-					}
-
-
-				// }
 				if (this.lastPos == null) {
 					this.lastPos = rect;
 				} else if (this.lastPos.x == rect.x && this.lastPos.y == rect.y) {
-					// return;
+					return;
 				}
-				console.log("lh", lh);
 				//Set properties at once.
 				styleRoot.style.cssText = `
   --cursor-x1: ${rect.x}px;
@@ -120,8 +95,7 @@ lh = Math.max(parseInt(targetElement.querySelector(".cm-active")?.getCssProperty
   --cursor-x2: ${rect.x}px;
   --cursor-y2src: ${rect.y}px;
   --cursor-offset-y: ${0}px;
-  	--cursor-height: ${lh}px;
-
+  --cursor-height: ${lh}px;
   --cursor-visibility: visible;
 `;
 				if (noAnimate) {
@@ -140,8 +114,7 @@ lh = Math.max(parseInt(targetElement.querySelector(".cm-active")?.getCssProperty
 
 
 		const supportVIMMode = true;
-		// const eventNames = ["keydown", "mousedown", "touchend", "keyup", "mouseup", "touchstart"];
-				const eventNames = ["keydown", "mouseup"];
+		const eventNames = ["keydown", "mousedown", "touchend", "keyup", "mouseup", "touchstart"];
 
 		for (const event of eventNames) {
 			registerDomEvent(aw, event, (ev: Event) => {
@@ -197,7 +170,6 @@ export default class FatCursorPlugin extends Plugin {
 	settings: FatCursorPluginSettings;
 
 	async onload() {
-		await this.loadSettings();
 		this.registerEvent(this.app.workspace.on("window-open", (win) => {
 			console.log("Open by window-open")
 			const exist = this.Cursors.find(e => e.bufferedWindow == win.win);
@@ -221,13 +193,10 @@ export default class FatCursorPlugin extends Plugin {
 		this.Cursors.push(w);
 
 
-		// This adds a settings tab so the user can configure various aspects of the plugin
-		this.addSettingTab(new SampleSettingTab(this.app, this));
-
 		// If the plugin hooks up any global DOM events (on parts of the app that doesn't belong to this plugin)
 		// Using this function will automatically remove the event listener when this plugin is disabled.
 		this.registerDomEvent(document, 'click', (evt: MouseEvent) => {
-			console.log('click', evt);
+			// console.log('click', evt);
 		});
 
 		// When registering intervals, this function will automatically clear the interval when the plugin is disabled.
@@ -250,62 +219,10 @@ export default class FatCursorPlugin extends Plugin {
 }
 
 
-
-
-class SampleModal extends Modal {
-	constructor(app: App) {
-		super(app);
-	}
-
-	onOpen() {
-		const { contentEl } = this;
-		contentEl.setText('Woah!');
-	}
-
-	onClose() {
-		const { contentEl } = this;
-		contentEl.empty();
-	}
-}
-
-class SampleSettingTab extends PluginSettingTab {
-	plugin: FatCursorPlugin;
-
-	constructor(app: App, plugin: FatCursorPlugin) {
-		super(app, plugin);
-		this.plugin = plugin;
-	}
-
-	display(): void {
-		const { containerEl } = this;
-
-		containerEl.empty();
-
-		new Setting(containerEl)
-			.setName('Setting #1')
-			.setDesc('It\'s a secret')
-			.addText(text => text
-				.setPlaceholder('Enter your secret')
-				.setValue(this.plugin.settings.mySetting)
-				.onChange(async (value) => {
-					this.plugin.settings.mySetting = value;
-					await this.plugin.saveSettings();
-				}));
-	}
-}
-
 // Remember to rename these classes and interfaces!
 
 interface FatCursorPluginSettings {
-	mySetting: string,
-	reactToContentEditable: boolean,
-	reactToVimMode: boolean,
-	reactToInputElement: boolean;
 }
 
 const DEFAULT_SETTINGS: FatCursorPluginSettings = {
-	mySetting: 'default',
-	reactToContentEditable: false,
-	reactToVimMode: false,
-	reactToInputElement: false,
 }
