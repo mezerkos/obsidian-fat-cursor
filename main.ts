@@ -71,6 +71,17 @@ class FatCursorForWindow {
 					rect = selection.getRangeAt(0).getClientRects()[0];
 				} else if (targetElement.querySelector(".cm-active")?.getClientRects() ? [0] : null) {
 					rect = targetElement.querySelector(".cm-active")?.getClientRects()[0] ?? null;
+					// Add logic for bullets
+					if (targetElement.querySelector(".cm-active .cm-list-1")) {
+						rect = targetElement.querySelector(".cm-active .cm-list-1")?.getClientRects()[0] ?? null;
+					}
+					if (targetElement.querySelector(".cm-active .cm-list-1 .list-bullet")) {
+						rect = targetElement.querySelector(".cm-active .cm-list-1 .list-bullet")?.getClientRects()[0] ?? null;
+						if (rect) {
+							rect = DOMRect.fromRect(rect);
+							rect.x += 15;
+						}
+					}
 				} else if (targetElement.getClientRects()[0]) {
 					rect = targetElement.getClientRects()[0];
 				}
