@@ -23,11 +23,11 @@ class FatCursorForWindow {
 		this.bufferedWindow = aw;
 		this.bufferedDocument = ad;
 		this.wrapperElement = ad.createElement("div");
-		this.wrapperElement.addClass("cursorWrapper");
+		this.wrapperElement.addClass("fatCursorWrapper");
 		this.cursorElement = ad.createElement("span");
 		this.wrapperElement.appendChild(this.cursorElement);
 		ad.body.appendChild(this.wrapperElement);
-		this.cursorElement.addClass("x-cursor");
+		this.cursorElement.addClass("f-cursor");
 		const styleRoot = this.wrapperElement;
 		let datumTop = 0;
 		let datumElement: HTMLElement;
@@ -52,7 +52,7 @@ class FatCursorForWindow {
 				} else if (e != null) {
 					// If it caused by clicking an element but it is not editable.
 					if (cursorVisibility) {
-						styleRoot.style.setProperty("--cursor-visibility", `hidden`);
+						styleRoot.style.setProperty("--f-cursor-visibility", `hidden`);
 						cursorVisibility = false;
 					}
 					return;
@@ -111,13 +111,13 @@ class FatCursorForWindow {
 
 				//Set properties at once.
 				styleRoot.style.cssText = `
-  --cursor-height: ${rect.height}px;
-  --cursor-x1: ${this.lastPos.x}px;
-  --cursor-y1src: ${this.lastPos.y}px;
-  --cursor-x2: ${rect.x}px;
-  --cursor-y2src: ${rect.y}px;
-  --cursor-offset-y: ${0}px;
-  --cursor-visibility: visible;
+  --f-cursor-height: ${rect.height}px;
+  --f-cursor-x1: ${this.lastPos.x}px;
+  --f-cursor-y1src: ${this.lastPos.y}px;
+  --f-cursor-x2: ${rect.x}px;
+  --f-cursor-y2src: ${rect.y}px;
+  --f-cursor-offset-y: ${0}px;
+  --f-cursor-visibility: visible;
 `;
 				if (noAnimate) {
 					this.lastPos = rect;
@@ -126,7 +126,6 @@ class FatCursorForWindow {
 				// I have not remembered why I have updated datumTop here.
 				// datumTop = datumElement.getBoundingClientRect().top;
 				aw.requestAnimationFrame((time) => {
-					this.cursorElement.className = `x-cursor x-cursor${this.styleCount}`
 					this.lastPos = rect;
 				});
 			} catch (ex) {
@@ -153,7 +152,7 @@ class FatCursorForWindow {
 						try {
 							const curTop = datumElement.getBoundingClientRect().top;
 							const diff = curTop - datumTop;
-							styleRoot.style.setProperty("--cursor-offset-y", `${diff}px`);
+							styleRoot.style.setProperty("--f-cursor-offset-y", `${diff}px`);
 							if (last === false || last != diff) {
 								requestAnimationFrame(() => applyWheelScroll(diff));
 							} else if (last == diff) {
