@@ -1,6 +1,6 @@
 {
 	"name": "fat-cursor-plugin",
-	"version": "0.0.1",
+	"version": "1.0.0",
 	"description": "This is a plugin for Obsidian (https://obsidian.md) to make the cursor more visible.",
 	"main": "main.js",
 	"scripts": {
